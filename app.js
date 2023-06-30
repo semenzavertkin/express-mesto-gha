@@ -28,7 +28,4 @@ app.use('*', (req, res) => {
   res.status(NOT_FOUND).send({ message: 'Страница не найдена' });
 });
 
-app.listen(PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log('cthdth');
-});
+app.listen(PORT);
