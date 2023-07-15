@@ -1,78 +1,80 @@
 const Cards = require('../models/card');
-const { DATA_ERROR, NOT_FOUND, SERVER_ERROR } = require('../utils/errors');
+const DataError = require('../utils/errors/dataError');
+const ForbiddenError = require('../utils/errors/forbiddenError');
+const NotFoundError = require('../utils/errors/notFoundError');
+const { SUCCESS_CREATED } = require('../utils/constants');
 
-const createCard = (req, res) => {
+const createCard = (req, res, next) => {
   const { name, link } = req.body;
   const owner = req.user._id;
 
   Cards.create({ name, link, owner })
-    .then((card) => res.send(card))
+    .then((card) => res.status(SUCCESS_CREATED).send(card))
     .catch((err) => {
       if (err.name === 'ValidationError') {
-        res.status(DATA_ERROR).send({ message: 'Переданы некорректные данные при создании карточки' });
+        next(new DataError('Переданы некорректные данные при создании карточки'));
       } else {
-        res.status(SERVER_ERROR).send({ message: 'На сервере произошла ошибка' });
+        next(err);
       }
     });
 };
 
-const getCards = (req, res) => {
+const getCards = (req, res, next) => {
   Cards.find({})
-    .then((cards) => res.send(cards))
-    .catch(() => res.status(SERVER_ERROR).send({ message: 'На сервере произошла ошибка' }));
+    .then((cards) => res.status(SUCCESS_CREATED).send(cards))
+    .catch(next);
 };
 
-const deleteCard = (req, res) => {
+const deleteCard = (req, res, next) => {
   const { cardId } = req.params;
 
   Cards.findByIdAndRemove(cardId)
     .orFail(() => new Error('NotFound'))
-    .then((card) => res.send(card))
-    .catch((err) => {
-      if (err.name === 'CastError') {
-        res.status(DATA_ERROR).send({ message: 'Переданы некорректные данные' });
-      } else if (err.message === 'NotFound') {
-        res.status(NOT_FOUND).send({ message: 'Карточка с указанным _id не найдена' });
+    .then((card) => {
+      if (card.owner.toString() === req.user._id) {
+        Cards.deleteOne(card)
+          .then(() => res.status(SUCCESS_CREATED).send(card));
       } else {
-        res.status(SERVER_ERROR).send({ message: 'На сервере произошла ошибка' });
+        next(new ForbiddenError('В доступе отказано'));
       }
-    });
+    })
+    .catch(next);
 };
 
-const likeCard = (req, res) => {
+const likeCard = (req, res, next) => {
   Cards.findByIdAndUpdate(
     req.params.cardId,
     { $addToSet: { likes: req.user._id } },
     { new: true },
   )
     .orFail(() => new Error('NotFound'))
-    .then((card) => res.send(card))
+    .then((card) => res.status(SUCCESS_CREATED).send(card))
     .catch((err) => {
       if (err.name === 'CastError') {
-        res.status(DATA_ERROR).send({ message: 'Переданы некорректные данные для постановки лайка' });
+        next(new DataError('Переданы некорректные данные при создании пользователя'));
       } else if (err.message === 'NotFound') {
-        res.status(NOT_FOUND).send({ message: 'Передан несуществующий _id карточки' });
+        next(new NotFoundError(' Передан несуществующий _id карточки'));
       } else {
-        res.status(SERVER_ERROR).send({ message: 'На сервере произошла ошибка' });
+        next(err);
       }
     });
 };
 
-const dislikeCard = (req, res) => {
+const dislikeCard = (req, res, next) => {
   Cards.findByIdAndUpdate(
     req.params.cardId,
     { $pull: { likes: req.user._id } },
     { new: true },
   )
     .orFail(() => new Error('NotFound'))
-    .then((card) => res.send(card))
+    .then((card) => res.status(SUCCESS_CREATED).send(card))
     .catch((err) => {
       if (err.name === 'CastError') {
-        res.status(DATA_ERROR).send({ message: 'Переданы некорректные данные для снятия лайка' });
+        next(new DataError('Переданы некорректные данные для снятия лайка'));
       } else if (err.message === 'NotFound') {
-        res.status(NOT_FOUND).send({ message: 'Передан несуществующий _id карточки' });
+        next(new NotFoundError(' Передан несуществующий _id карточки'));
       } else {
-        res.status(SERVER_ERROR).send({ message: 'На сервере произошла ошибка' });
+        next(err);
       }
     });
 };
