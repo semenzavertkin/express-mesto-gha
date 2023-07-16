@@ -27,11 +27,11 @@ const getCards = (req, res, next) => {
 const deleteCard = (req, res, next) => {
   const { cardId } = req.params;
 
-  Card.findByIdAndRemove(cardId)
+  Card.findById(cardId)
     .orFail(() => new Error('NotFound'))
     .then((card) => {
       if (card.owner.toString() === req.user._id) {
-        Card.deleteOne(card)
+        Card.findByIdAndRemove(cardId)
           .then(() => res.send({ message: 'Карточка удалена' }));
       } else {
         next(new Forbidden('В доступе отказано'));
